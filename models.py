@@ -74,23 +74,17 @@ class LSTM:
         self.name = prefix
 
         # init params
-        w_values = numpy.concatenate([ortho_weight(input_dim, hidden_dim),
-                                      ortho_weight(input_dim, hidden_dim),
-                                      ortho_weight(input_dim, hidden_dim),
-                                      ortho_weight(input_dim, hidden_dim)])
 
-        self.w = theano.shared(w_values, name=prefix+"_w")
 
-        # init params
-        u_values = numpy.concatenate([ortho_weight(input_dim, hidden_dim),
-                                      ortho_weight(input_dim, hidden_dim),
-                                      ortho_weight(input_dim, hidden_dim),
-                                      ortho_weight(input_dim, hidden_dim)])
+        self.w = create_ortho_shared(hidden_dim, input_dim, 4, name=prefix+"_w")
 
-        self.u = theano.shared(w_values, name=prefix + "_u")
+
+
+        self.u = create_ortho_shared(hidden_dim,hidden_dim, 4, name=prefix + "_u")
 
 
         b_values = numpy.zeros(4*hidden_dim)
+        
         self.b = theano.shared(b_values, name=prefix + "_b")
 
     @property
