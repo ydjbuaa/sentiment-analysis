@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 from SentimentLSTM import *
 from SentimentSLSTM import *
+from tag_lstm import *
 from collections import OrderedDict
 import cPickle
 if __name__ == "__main__":
@@ -10,7 +11,7 @@ if __name__ == "__main__":
     options = OrderedDict()
     # set options
     options['word_dim'] = 300
-    options['mem_dim'] = 150
+    options['mem_dim'] = 300
     options['y_dim'] = numpy.max(train[1]) + 1
     options["Wemb"] = Wemb
     options["Temb"] = Temb
@@ -20,8 +21,8 @@ if __name__ == "__main__":
     #senti_lstm = SentimentLSTM(options,model='lstm')
 
     # tagged-lstm
-    senti_lstm = SentimentSLSTM(options, model='tagged_slstm')
-    max_epochs = 15
+    senti_lstm = TagLSTMSentiment(options, "sentiment")
+    max_epochs = 10
     batch_size = 25
     lrate = 0.0001
 

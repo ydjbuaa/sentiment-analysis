@@ -78,14 +78,9 @@ class LSTM:
 
         self.w = create_ortho_shared(hidden_dim, input_dim, 4, name=prefix+"_w")
 
-
-
         self.u = create_ortho_shared(hidden_dim,hidden_dim, 4, name=prefix + "_u")
 
-
-        b_values = numpy.zeros(4*hidden_dim)
-        
-        self.b = theano.shared(b_values, name=prefix + "_b")
+        self.b = create_ortho_shared(hidden_dim, None, 4, name=prefix + "_u")
 
     @property
     def params(self):
@@ -101,6 +96,28 @@ class LSTM:
     def l2_sqr(self):
         return tensor.sum(self.w ** 2) + tensor.sum(self.u ** 2)
 
+    @staticmethod
+    def _slice(_x, n, dim):
+        if _x.ndim == 3:
+            return _x[:, :, n * dim:(n + 1) * dim]
+        return _x[:, n * dim:(n + 1) * dim]
+
+    def _step(self, m_, x_, h_, c_):
+        pre_act = tensor.dot(h_, self.u)
+        pre_act += x_
+
+        i = tensor.nnet.sigmoid(self._slice(pre_act, 0, self.mem_dim))
+        f = tensor.nnet.sigmoid(self._slice(pre_act, 1, self.mem_dim))
+        o = tensor.nnet.sigmoid(self._slice(pre_act, 2, self.mem_dim))
+        c = tensor.tanh(self._slice(pre_act, 3, self.mem_dim))
+
+        c = f * c_ + i * c
+        c = m_[:, None] * c + (1. - m_)[:, None] * c_
+
+        h = o * tensor.tanh(c)
+        h = m_[:, None] * h + (1. - m_)[:, None] * h_
+
+        return h, c
 
     def layer_output(self, state_blow, mask=None):
         """
@@ -113,38 +130,53 @@ class LSTM:
             nsamples = state_blow.shape[1]
         else:
             nsamples = 1
-
         # assert
         assert mask is not None
-
-        def _slice(_x, n, dim):
-            if _x.ndim == 3:
-                return _x[:, :, n * dim:(n + 1) * dim]
-            return _x[:, n * dim:(n + 1) * dim]
-
-        def _step(m_, x_, h_, c_):
-            pre_act = tensor.dot(h_, self.u)
-            pre_act += x_
-
-            i = tensor.nnet.sigmoid(_slice(pre_act, 0, self.mem_dim))
-            f = tensor.nnet.sigmoid(_slice(pre_act, 1, self.mem_dim))
-            o = tensor.nnet.sigmoid(_slice(pre_act, 2, self.mem_dim))
-            c = tensor.tanh(_slice(pre_act, 3, self.mem_dim))
-
-            c = f * c_ + i * c
-            c = m_[:, None] * c + (1. - m_)[:, None] * c_
-
-            h = o * tensor.tanh(c)
-            h = m_[:, None] * h + (1. - m_)[:, None] * h_
-
-
-            return h, c
 
 
         state_blow = tensor.dot(state_blow, self.w) + self.b
 
         results, updates = theano.scan(
-            fn=_step,
+            fn=self._step,
+            sequences=[mask, state_blow],
+            outputs_info=[tensor.alloc(numpy_floatX(0.),
+                                       nsamples,
+                                       self.mem_dim),
+                          tensor.alloc(numpy_floatX(0.),
+                                       nsamples,
+                                       self.mem_dim)],
+            n_steps=nsteps,
+            name=self.name + '_layer'
+        )
+
+        return results[0]
+
+
+class TagLSTM(LSTM):
+    def __init__(self, input_dim, hidden_dim, prefix="tag_lstm"):
+        LSTM.__init__(self, input_dim, hidden_dim, prefix)
+        self.v = create_ortho_shared(hidden_dim, input_dim, 4, prefix+"_v")
+    @property
+    def params(self):
+        return [self.w, self.u, self.v, self.b]
+
+
+    def layer_output(self, state_blow, tag_blow, mask=None):
+        """
+        :type tag_blow: object
+        """
+        nsteps = state_blow.shape[0]
+        if state_blow.ndim == 3:
+            nsamples = state_blow.shape[1]
+        else:
+            nsamples = 1
+        # assert
+        assert mask is not None
+
+        state_blow = tensor.dot(state_blow, self.w) + tensor.dot(tag_blow, self.v)+ self.b
+
+        results, updates = theano.scan(
+            fn=self._step,
             sequences=[mask, state_blow],
             outputs_info=[tensor.alloc(numpy_floatX(0.),
                                        nsamples,
@@ -307,10 +339,14 @@ class LogisticRegression(object):
         """
         self.name = prefix
         # start-snippet-1
+        # classifier
+        w_values = 0.01 * numpy.random.randn(input_size,output_size).astype(config.floatX)
+        b_values = numpy.zeros((output_size,)).astype(config.floatX)
+
         # initialize with 0 the weights W as a matrix of shape (input_size, output_size)
-        self.w = create_shared(output_size, input_size, name=prefix + "_w")
+        self.w = theano.shared(w_values,  name=prefix + "_w")
         # initialize the biases b as a vector of n_out 0s
-        self.b = create_shared(output_size, None, name= prefix + "_b")
+        self.b = theano.shared(b_values, name= prefix + "_b")
 
         # symbolic expression for computing the matrix of class-membership
         # probabilities
