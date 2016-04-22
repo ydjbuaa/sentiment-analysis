@@ -5,8 +5,7 @@ import theano.tensor as tensor
 import time
 import numpy
 # Set the random number generators' seeds for consistency
-SEED = 123
-numpy.random.seed(SEED)
+
 
 def get_minibatches_idx(n, minibatch_size, shuffle=False):
     """
@@ -156,9 +155,9 @@ class TagLSTMSentiment(object):
         print ("Building Model:", model)
 
         # variables
-        x = tensor.matrix('xc', dtype='int64')
-        t = tensor.matrix("xs", dtype='int64')
-        mask = tensor.matrix('xc_mask', dtype=config.floatX)
+        x = tensor.matrix('x', dtype='int64')
+        t = tensor.matrix("t", dtype='int64')
+        mask = tensor.matrix('mask', dtype=config.floatX)
         y = tensor.vector('y', dtype='int64')
 
         n_timesteps = x.shape[0]

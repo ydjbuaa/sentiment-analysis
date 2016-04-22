@@ -5,7 +5,7 @@ from theano import config
 import theano.tensor as tensor
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 # Set the random number generators' seeds for consistency
-SEED = 1234
+SEED = 123
 np_rng = numpy.random.RandomState(SEED)
 trng = RandomStreams(SEED)
 
